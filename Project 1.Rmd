@@ -324,3 +324,16 @@ labs(x="States", title="Scatter plot of proportion of Caribou coffee locations t
 ylab("Proportion of locations that have drivethru")+
 theme(axis.text.x=element_text(angle=90))
 ```
+
+### Add map of all the locations that sell Caribou coffee in the United States.
+```{r}
+install.packages("mapdata")
+install.packages("usmap")
+library(usmap)
+library(mapdata)
+mapdf <- filter(ajaxTBwide, (as.numeric(ajaxTBwide$longitude) > -130) & (as.numeric(ajaxTBwide$longitude) < -65))
+usa <- map_data("usa")
+usamap <-ggplot() + geom_polygon(data = usa, aes(x=long, y = lat, group = group), fill = "#008B8B", color = "blue") + coord_fixed(1.3)
+usamap + geom_point(data = mapdf, aes(x = (as.numeric(mapdf$longitude)), y = (as.numeric(mapdf$latitude))), color = "black", size = 1) + coord_fixed(1.3) + labs(title = "Caribou Coffee Sellers in the United States")
+```
+
