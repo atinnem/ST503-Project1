@@ -222,11 +222,21 @@ getTotalperCust(orderTB_copy, 730)
 
 
 # By Group-A: second example of reading in XML data set, and do analysis
+
+```{r setup, cache = F}
+knitr::opts_chunk$set(error = TRUE)
+```
+
+```{r message=FALSE}
+install.packages("XML")
+library(XML)
+library(RCurl)
+```
+
 ## Read in XML data set
 ```{r message=FALSE, cache=TRUE}
 #We noticed some issues in using a URL with an https epithet. We had to load the URL using RCurl to change the security settings.
 
-library(RCurl)
 ajaxURL<-"https://www4.stat.ncsu.edu/~post/558/datasets/ajax.xml"
 ajaxFetch<-getURL(ajaxURL)
 ajaxData<-xmlTreeParse(ajaxFetch,useInternal=TRUE)
@@ -235,9 +245,10 @@ ajaxData<-xmlTreeParse(ajaxFetch,useInternal=TRUE)
 Now that we have the data in our environment in raw format, we have to clean it up
 ```{r cache=TRUE}
 #We have to unlist since we don't have a square matrix
-
+library(plyr)
 xmlInList2 <- xmlToList(ajaxData)
 ajaxDF <- ldply(unlist(xmlInList2), data.frame)
+library(dplyr)
 ajaxTB <- tbl_df(ajaxDF)
 ```
 
@@ -280,10 +291,6 @@ ajaxTBwide$wifi<-as.numeric(ajaxTBwide$wifi)
 (Zhen-When I run this code, there is some error)
 After cleaning up the data a little bit, we will do some sample analysis.
 
-#summaries
-ajaxTBwide%>%group_by(wifi)%>%summarize(grocery,identity)
-
-
 ### Numeric Summaries:
 Numeric summary of the proportion of Caribou coffee locations that have wifi for each state.
 ```{r}
@@ -298,6 +305,8 @@ driveThruPropData<-ajaxTBwide %>% group_by(state) %>% summarise(driveThruProp=me
 ### Create a bar plot:
 Bar plot showing proportion of Caribou coffee locations that have wifi for each state.
 ```{r}
+install.packages("ggplot2")
+library(ggplot2)
 p<-ggplot(wifiPropData, aes(x=state, y=wifiProp))
 p+geom_bar(stat="identity", fill="blue")+
 labs(x="States", title="Barplot of proportion of Caribou coffee locations that have wifi for each state")+
@@ -315,5 +324,3 @@ labs(x="States", title="Scatter plot of proportion of Caribou coffee locations t
 ylab("Proportion of locations that have drivethru")+
 theme(axis.text.x=element_text(angle=90))
 ```
-
-(Zhen-we may add more summarizations, and plots)
