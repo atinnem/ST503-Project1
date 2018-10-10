@@ -8,7 +8,6 @@ output:
     toc: true
     toc_depth: 1
 ---
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
 ```
@@ -43,12 +42,21 @@ There are several ways and packages that could be used to read in XML data. The 
 ```{r, warning = FALSE, message = FALSE}
 library(tidyverse)
 #requiring more packages that will be helpful later to handle XML data
+if (!require(XML)) {install.packages("XML")}
 library(XML)
 library(methods)
-library(plyr)
+if (!require(dplyr)) {install.packages("dplyr")}
 library(dplyr)
+library(plyr)
 if (!require(lubridate)) {install.packages("lubridate")}
 library(lubridate)
+library(ggplot2)
+
+#Group A Packages
+library(tidyr)
+library(usmap)
+library(mapdata)
+library(RCurl)
 ```
 
 
@@ -215,3 +223,103 @@ getTotalperCust(orderTB_copy, 1110)
 getTotalperCust(orderTB_copy, 1369)
 getTotalperCust(orderTB_copy, 730)
 ```
+
+
+# By Group-A: second example of reading in XML data set, and do analysis
+
+## Read in XML data set
+```{r message=FALSE, cache=TRUE}
+#We noticed some issues in using a URL with an https epithet. We had to load the URL using RCurl to change the security settings.
+
+ajaxURL<-"https://www4.stat.ncsu.edu/~post/558/datasets/ajax.xml"
+ajaxFetch<-getURL(ajaxURL)
+ajaxData<-xmlTreeParse(ajaxFetch,useInternal=TRUE)
+```
+
+Now that we have the data in our environment in raw format, we have to clean it up
+```{r cache=TRUE}
+#We have to unlist since we don't have a square matrix
+xmlInList2 <- xmlToList(ajaxData)
+ajaxDF <- ldply(unlist(xmlInList2), data.frame)
+ajaxTB <- tbl_df(ajaxDF)
+```
+
+Now the entire dataset is in a long form with redundant variable names, so we want to change the values in the id colume into columns names, which means convert the long form dataset into a wide form.
+```{r cache=TRUE}
+ajaxTB$X..i..<-as.character(ajaxTB$X..i..)
+ajaxTBwide<-ajaxTB %>% group_by(.id) %>% #group by everything other than the value column
+  dplyr::mutate(row_id=1:n()) %>% # build group index
+  ungroup() %>% spread(key=.id, value=X..i..) %>% # spread
+  select(-row_id)  # drop the index
+```
+
+```{r}
+#Clunky way to rename variables to get rid of collection.poi beginning portion
+names(ajaxTBwide)<-sub("\\w{10}","",names(ajaxTBwide)) #removes "collection"
+names(ajaxTBwide)<-sub(".","",names(ajaxTBwide)) #removes "." 
+names(ajaxTBwide)<-sub("\\w{3}","",names(ajaxTBwide))  #removes "poi"
+names(ajaxTBwide)<-sub(".","",names(ajaxTBwide)) #removes "."
+
+#Cleans data to change all Y/N variants to 0/1
+ajaxTBwide[ajaxTBwide=="y"]<-1
+ajaxTBwide[ajaxTBwide=="Y"]<-1
+ajaxTBwide[ajaxTBwide=="Yes"]<-1
+ajaxTBwide[ajaxTBwide=="n"]<-0
+ajaxTBwide[ajaxTBwide=="N"]<-0
+ajaxTBwide[ajaxTBwide=="No"]<-0
+
+#Changes variables from chr to numeric for mean calculations for the 0/1 variables
+ajaxTBwide$brueggers<-as.numeric(ajaxTBwide$brueggers)
+ajaxTBwide$coffeeshop<-as.numeric(ajaxTBwide$coffeeshop)
+ajaxTBwide$drivethru<-as.numeric(ajaxTBwide$drivethru)
+ajaxTBwide$hide_employment<-as.numeric(ajaxTBwide$hide_employment)
+ajaxTBwide$loyalty<-as.numeric(ajaxTBwide$loyalty)
+ajaxTBwide$meetingrooms<-as.numeric(ajaxTBwide$meetingrooms)
+ajaxTBwide$wifi<-as.numeric(ajaxTBwide$wifi)
+```
+
+## Exploratory data analysis
+After cleaning up the data a little bit, we will do some sample analysis.
+
+### Numeric Summaries:
+Numeric summary of the proportion of Caribou coffee locations that have wifi for each state.
+```{r}
+wifiPropData<-ajaxTBwide %>% group_by(state) %>% summarise(wifiProp=mean(wifi,na.rm=TRUE))
+```
+
+Numeric summary of the proportion of Caribou coffee locations that have drivethru for each state.
+```{r}
+driveThruPropData<-ajaxTBwide %>% group_by(state) %>% summarise(driveThruProp=mean(drivethru,na.rm=TRUE))
+```
+
+### Create a bar plot:
+Bar plot showing proportion of Caribou coffee locations that have wifi for each state.
+```{r}
+p<-ggplot(wifiPropData, aes(x=state, y=wifiProp))
+p+geom_bar(stat="identity", fill="blue")+
+labs(x="States", title="Barplot of proportion of Caribou coffee locations that have wifi for each state")+
+ylab("Proportion of wifi covered")+
+theme(axis.text.x=element_text(angle=90))
+```
+
+
+### Create a scatter plot:
+Scatter plot showing proportion of Caribou coffee locations that have drivethru for each state...
+```{r}
+g<-ggplot(driveThruPropData, aes(x = state, y = driveThruProp))
+g+geom_point()+
+labs(x="States", title="Scatter plot of proportion of Caribou coffee locations that have drivethru for each state")+
+ylab("Proportion of locations that have drivethru")+
+theme(axis.text.x=element_text(angle=90))
+```
+
+### Add map of all the locations that sell Caribou coffee in the United States.
+```{r}
+mapdf <- filter(ajaxTBwide, (as.numeric(ajaxTBwide$longitude) > -130) & (as.numeric(ajaxTBwide$longitude) < -65))
+usa <- map_data("usa")
+usamap <-ggplot() + geom_polygon(data = usa, aes(x=long, y = lat, group = group), fill = "#008B8B", color = "blue") + coord_fixed(1.3)
+usamap + geom_point(data = mapdf, aes(x = (as.numeric(mapdf$longitude)), y = (as.numeric(mapdf$latitude))), color = "black", size = 1) + coord_fixed(1.3) + labs(title = "Caribou Coffee Sellers in the United States")
+```
+
+###Conclusion
+Only place we had issues with was originally reading in the https formatted URL.  Otherwise, the vignette was very helpful!
