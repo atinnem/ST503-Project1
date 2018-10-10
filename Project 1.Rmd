@@ -46,7 +46,8 @@ if (!require(XML)) {install.packages("XML")}
 library(XML)
 library(methods)
 if (!require(dplyr)) {install.packages("dplyr")}
-require(dplyr)
+library(dplyr)
+library(plyr)
 if (!require(lubridate)) {install.packages("lubridate")}
 library(lubridate)
 library(ggplot2)
@@ -320,3 +321,5 @@ usamap <-ggplot() + geom_polygon(data = usa, aes(x=long, y = lat, group = group)
 usamap + geom_point(data = mapdf, aes(x = (as.numeric(mapdf$longitude)), y = (as.numeric(mapdf$latitude))), color = "black", size = 1) + coord_fixed(1.3) + labs(title = "Caribou Coffee Sellers in the United States")
 ```
 
+###Conclusion
+Only place we had issues with was originally reading in the https formatted URL.  Otherwise, the vignette was very helpful!
